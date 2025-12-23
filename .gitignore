@@ -1,0 +1,35 @@
+# Dependencies
+node_modules/
+
+# Build artifacts
+.build/
+dist/*.wasm
+dist/*.js
+dist/*.cjs
+dist/*.map
+dist/*.d.ts
+dist/build-info.json
+
+# Keep dist folder structure
+!dist/.gitkeep
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Logs
+*.log
+npm-debug.log*
+
+# Test coverage
+coverage/
+
+# Environment
+.env
+.env.local

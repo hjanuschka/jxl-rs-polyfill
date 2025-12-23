@@ -1,0 +1,67 @@
+{
+  "name": "jxl-rs-polyfill",
+  "version": "0.1.0",
+  "description": "JPEG XL (JXL) polyfill for browsers without native support - decodes JXL to PNG using WebAssembly",
+  "keywords": [
+    "jpeg-xl",
+    "jxl",
+    "polyfill",
+    "webassembly",
+    "wasm",
+    "image",
+    "decoder"
+  ],
+  "license": "BSD-3-Clause",
+  "author": "JXL-RS Contributors",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/libjxl/jxl-rs"
+  },
+  "homepage": "https://github.com/libjxl/jxl-rs/tree/main/jxl_wasm",
+  "bugs": {
+    "url": "https://github.com/libjxl/jxl-rs/issues"
+  },
+  "type": "module",
+  "main": "./dist/jxl-polyfill.js",
+  "module": "./dist/jxl-polyfill.js",
+  "types": "./dist/jxl-polyfill.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/jxl-polyfill.d.ts",
+      "import": "./dist/jxl-polyfill.js",
+      "require": "./dist/jxl-polyfill.cjs"
+    },
+    "./auto": {
+      "types": "./dist/auto.d.ts",
+      "import": "./dist/auto.js"
+    },
+    "./wasm": {
+      "types": "./dist/jxl_wasm.d.ts",
+      "import": "./dist/jxl_wasm.js"
+    }
+  },
+  "files": [
+    "dist/",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "build": "npm run build:wasm && npm run build:bundle",
+    "build:wasm": "bash scripts/build-wasm.sh",
+    "build:bundle": "node scripts/bundle.js",
+    "prepublishOnly": "npm run build",
+    "clean": "rm -rf dist/*"
+  },
+  "devDependencies": {
+    "esbuild": "^0.20.0"
+  },
+  "engines": {
+    "node": ">=16.0.0"
+  },
+  "sideEffects": [
+    "./dist/auto.js"
+  ],
+  "publishConfig": {
+    "access": "public"
+  }
+}
