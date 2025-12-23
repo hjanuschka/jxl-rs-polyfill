@@ -15,11 +15,11 @@
   "author": "JXL-RS Contributors",
   "repository": {
     "type": "git",
-    "url": "https://github.com/libjxl/jxl-rs"
+    "url": "https://github.com/hjanuschka/jxl-rs-polyfill"
   },
-  "homepage": "https://github.com/libjxl/jxl-rs/tree/main/jxl_wasm",
+  "homepage": "https://github.com/hjanuschka/jxl-rs-polyfill",
   "bugs": {
-    "url": "https://github.com/libjxl/jxl-rs/issues"
+    "url": "https://github.com/hjanuschka/jxl-rs-polyfill/issues"
   },
   "type": "module",
   "main": "./dist/jxl-polyfill.js",
