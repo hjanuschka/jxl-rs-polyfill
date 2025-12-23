@@ -121,16 +121,6 @@ ${readFileSync(join(srcDir, 'polyfill-core.js'), 'utf-8')}
 
 writeFileSync(join(distDir, 'auto.js'), autoLoaderSrc);
 
-// Build auto-lite.js - uses external WASM file (smaller download, requires proper hosting)
-await esbuild.build({
-  entryPoints: [join(srcDir, 'auto-lite.js')],
-  bundle: true,
-  format: 'iife',
-  outfile: join(distDir, 'auto-lite.js'),
-  minify: true,
-  sourcemap: true,
-});
-
 // Copy TypeScript definitions
 copyFileSync(join(srcDir, 'jxl-polyfill.d.ts'), join(distDir, 'jxl-polyfill.d.ts'));
 copyFileSync(join(srcDir, 'auto.d.ts'), join(distDir, 'auto.d.ts'));
@@ -140,4 +130,3 @@ console.log('Files generated:');
 console.log('  - dist/jxl-polyfill.js (ESM module)');
 console.log('  - dist/jxl-polyfill.cjs (CommonJS module)');
 console.log('  - dist/auto.js (self-contained CDN bundle)');
-console.log('  - dist/auto-lite.js (CDN bundle, external WASM)');
