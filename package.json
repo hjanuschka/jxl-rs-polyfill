@@ -1,6 +1,6 @@
 {
   "name": "jxl-rs-polyfill",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "JPEG XL (JXL) polyfill for browsers without native support - decodes JXL to PNG using WebAssembly",
   "keywords": [
     "jpeg-xl",
@@ -53,7 +53,7 @@
     "clean": "rm -rf dist/*"
   },
   "devDependencies": {
-    "esbuild": "^0.20.0"
+    "esbuild": "^0.20.2"
   },
   "engines": {
     "node": ">=16.0.0"

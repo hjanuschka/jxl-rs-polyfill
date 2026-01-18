@@ -20,14 +20,15 @@ let initPromise = null;
 
 /**
  * Initialize the WASM module
+ * @param {string | URL | Request | BufferSource | WebAssembly.Module} [moduleOrPath] - Custom WASM source
  * @returns {Promise<void>}
  */
-export async function initWasm() {
+export async function initWasm(moduleOrPath) {
   if (wasmInitialized) return;
   if (initPromise) return initPromise;
 
   initPromise = (async () => {
-    await init();
+    await init(moduleOrPath);
     wasmInitialized = true;
   })();
 

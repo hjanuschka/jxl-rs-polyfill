@@ -1,14 +1,15 @@
 # jxl-rs-polyfill
 
-JPEG XL (JXL) polyfill for browsers without native support. Decodes JXL images to PNG using WebAssembly, powered by [jxl-rs](https://github.com/libjxl/jxl-rs).
+JPEG XL (JXL) polyfill for browsers without native support. Decodes JXL images to PNG/APNG using WebAssembly, powered by [jxl-rs](https://github.com/libjxl/jxl-rs).
 
 ## Features
 
 - **Zero-config CDN usage** - Just add a script tag
+- **Animation support** - Animated JXL → APNG conversion
 - **npm package** - Full control with TypeScript support
 - **Automatic detection** - Skips polyfill if browser has native JXL support
 - **Comprehensive coverage** - Handles `<img>`, CSS backgrounds, `<picture>`, SVG images
-- **Small footprint** - ~540KB gzipped WASM module
+- **Web Worker ready** - Non-blocking decode architecture
 - **Caching** - Decoded images are cached for performance
 
 ## Quick Start

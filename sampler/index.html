@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>JXL-RS Polyfill Demo</title>
+    <style>
+        body { 
+            font-family: system-ui, -apple-system, sans-serif; 
+            max-width: 900px; 
+            margin: 0 auto; 
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        h1 { color: #333; }
+        .info { 
+            background: #e8f4e8; 
+            padding: 15px; 
+            border-radius: 8px; 
+            margin-bottom: 20px;
+        }
+        .grid { 
+            display: grid; 
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); 
+            gap: 20px; 
+        }
+        .card { 
+            background: white;
+            border: 1px solid #ddd; 
+            padding: 15px; 
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .card h3 { margin-top: 0; color: #444; }
+        .card img { 
+            max-width: 100%; 
+            height: auto; 
+            display: block; 
+            border: 1px solid #eee;
+            background: #fafafa;
+        }
+        .status { 
+            margin-top: 10px; 
+            font-size: 0.85em; 
+            color: #666;
+            padding: 5px;
+            background: #f0f0f0;
+            border-radius: 4px;
+        }
+        .status.success { background: #d4edda; color: #155724; }
+        .status.error { background: #f8d7da; color: #721c24; }
+        .status.loading { background: #fff3cd; color: #856404; }
+        code { 
+            background: #e9ecef; 
+            padding: 2px 6px; 
+            border-radius: 3px; 
+            font-size: 0.9em;
+        }
+    </style>
+    <!-- JXL-RS Polyfill - drop-in script -->
+    <script src="../dist/auto.js"></script>
+</head>
+<body>
+    <h1>🖼️ JXL-RS Polyfill Demo</h1>
+    
+    <div class="info">
+        <strong>How it works:</strong> This page uses the <code>jxl-rs-polyfill</code> to automatically 
+        decode JPEG XL images in browsers without native support. The polyfill uses WebAssembly 
+        compiled from <a href="https://github.com/libjxl/jxl-rs">jxl-rs</a>.
+        <br><br>
+        <strong>Usage:</strong> <code>&lt;script src="https://unpkg.com/jxl-rs-polyfill/dist/auto.js"&gt;&lt;/script&gt;</code>
+    </div>
+    
+    <div class="grid">
+        <div class="card">
+            <h3>Animated Icons</h3>
+            <p style="font-size:0.85em;color:#666;">Animated JXL → APNG</p>
+            <img src="https://jpegxl.info/images/anim-icos.jxl" alt="Animated Icons" id="img1">
+            <div class="status loading" id="status1">Loading...</div>
+        </div>
+        
+        <div class="card">
+            <h3>Landscape Photo</h3>
+            <p style="font-size:0.85em;color:#666;">Zoltan Tasi - Unsplash</p>
+            <img src="https://jpegxl.info/images/zoltan-tasi-CLJeQCr2F_A-unsplash.jxl" alt="Landscape" id="img2">
+            <div class="status loading" id="status2">Loading...</div>
+        </div>
+        
+        <div class="card">
+            <h3>Dice</h3>
+            <p style="font-size:0.85em;color:#666;">JXL test image</p>
+            <img src="https://jpegxl.info/images/dice.jxl" alt="Dice" id="img3">
+            <div class="status loading" id="status3">Loading...</div>
+        </div>
+    </div>
+
+    <script>
+        function updateStatus(img, statusEl) {
+            const checkLoaded = () => {
+                if (img.complete && img.naturalWidth > 0) {
+                    statusEl.textContent = `✅ Loaded (${img.naturalWidth}×${img.naturalHeight})`;
+                    statusEl.className = 'status success';
+                    return true;
+                }
+                return false;
+            };
+            
+            if (checkLoaded()) return;
+            
+            img.onload = () => {
+                statusEl.textContent = `✅ Loaded (${img.naturalWidth}×${img.naturalHeight})`;
+                statusEl.className = 'status success';
+            };
+            img.onerror = () => {
+                statusEl.textContent = '❌ Failed to load';
+                statusEl.className = 'status error';
+            };
+            
+            // Timeout fallback
+            setTimeout(() => {
+                if (!img.complete || img.naturalWidth === 0) {
+                    if (statusEl.className.includes('loading')) {
+                        statusEl.textContent = '⏳ Still loading...';
+                    }
+                }
+            }, 5000);
+        }
+        
+        // Monitor all images
+        document.querySelectorAll('.card img').forEach((img, i) => {
+            updateStatus(img, document.getElementById(`status${i + 1}`));
+        });
+        
+        // Log polyfill stats after a delay
+        setTimeout(() => {
+            if (window.JXLPolyfill) {
+                console.log('JXL Polyfill Stats:', window.JXLPolyfill.getStats());
+            }
+        }, 3000);
+    </script>
+</body>
+</html>

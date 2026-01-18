@@ -6,20 +6,33 @@
   function isJxlUrl(url) {
     if (!url) return false;
     const lower = url.toLowerCase();
+    
+    // Check for base64 data URI
+    if (lower.startsWith('data:image/jxl;base64,')) return true;
+    
     return lower.endsWith('.jxl') || lower.includes('.jxl?') || lower.includes('.jxl#');
   }
 
   async function decodeJxl(jxlBytes) {
-    // This function interfaces with the WASM module
-    // The exact implementation depends on how wasm-bindgen generates the bindings
-    // For now, we'll use a simplified approach
+    // Use Web Worker if available (non-blocking)
+    if (window.JXL_WORKER && window.JXL_WORKER.decode) {
+      try {
+        return await window.JXL_WORKER.decode(jxlBytes);
+      } catch (e) {
+        console.warn('[JXL Polyfill] Worker decode failed, trying main thread:', e.message);
+        // Fall through to main thread
+      }
+    }
 
+    // Fallback to main thread (blocking but works everywhere)
     const wasm = window.__jxl_wasm;
     if (!wasm) throw new Error('WASM not initialized');
-
-    // The actual decoding needs the wasm-bindgen glue code
-    // For the embedded version, we include a minimal decoder
-    throw new Error('Direct WASM decoding not yet implemented in auto.js - use npm package');
+    
+    try {
+      return wasm.decode_jxl_to_png(jxlBytes);
+    } catch (e) {
+      throw new Error('WASM decode failed: ' + e.message);
+    }
   }
 
   async function fetchAndDecode(url) {
@@ -51,6 +64,28 @@
     if (!isJxlUrl(src) || img.dataset.jxlProcessed) return;
 
     img.dataset.jxlProcessed = 'true';
+
+    if (src.startsWith('data:image/jxl;base64,')) {
+      // Decode base64 directly
+      try {
+        const base64 = src.split(',')[1];
+        const binaryString = atob(base64);
+        const bytes = new Uint8Array(binaryString.length);
+        for (let i = 0; i < binaryString.length; i++) {
+          bytes[i] = binaryString.charCodeAt(i);
+        }
+        
+        const pngData = await decodeJxl(bytes);
+        const blob = new Blob([pngData], { type: 'image/png' });
+        const pngUrl = URL.createObjectURL(blob);
+        
+        img.src = pngUrl;
+        return;
+      } catch (err) {
+        console.error('[JXL Polyfill] Base64 decode failed:', err);
+        return;
+      }
+    }
 
     try {
       const pngUrl = await fetchAndDecode(src);
