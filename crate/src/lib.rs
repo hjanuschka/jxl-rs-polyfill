@@ -1,5 +1,6 @@
 use wasm_bindgen::prelude::*;
 use jxl::api::*;
+use jxl::headers::color_encoding::RenderingIntent;
 use jxl::image::{Image, Rect};
 
 #[wasm_bindgen]
@@ -59,7 +60,17 @@ pub fn decode_jxl_to_png(data: &[u8]) -> Result<Vec<u8>, JsValue> {
     
     let mut decoder_with_info = decoder_with_info;
     decoder_with_info.set_pixel_format(pixel_format);
-    
+
+    // Force output to sRGB color space to ensure correct color rendering
+    let srgb_profile = JxlColorProfile::Simple(JxlColorEncoding::RgbColorSpace {
+        white_point: JxlWhitePoint::D65,
+        primaries: JxlPrimaries::SRGB,
+        transfer_function: JxlTransferFunction::SRGB,
+        rendering_intent: RenderingIntent::Perceptual,
+    });
+    decoder_with_info.set_output_color_profile(srgb_profile)
+        .map_err(|e| JsValue::from_str(&format!("Failed to set sRGB output profile: {}", e)))?;
+
     // Collect all frames
     let mut frames: Vec<(Vec<u8>, u32)> = Vec::new(); // (pixels, delay_ms)
     let stride = width * 4;
@@ -150,17 +161,22 @@ pub fn decode_jxl_to_png(data: &[u8]) -> Result<Vec<u8>, JsValue> {
 }
 
 fn encode_static_png(width: usize, height: usize, pixels: &[u8]) -> Result<Vec<u8>, JsValue> {
-    use image::ImageEncoder;
-    
     let mut png_data = Vec::new();
-    let encoder = image::codecs::png::PngEncoder::new(&mut png_data);
-    encoder.write_image(
-        pixels,
-        width as u32,
-        height as u32,
-        image::ColorType::Rgba8
-    ).map_err(|e| JsValue::from_str(&format!("PNG encode error: {}", e)))?;
-    
+
+    {
+        let mut encoder = png::Encoder::new(&mut png_data, width as u32, height as u32);
+        encoder.set_color(png::ColorType::Rgba);
+        encoder.set_depth(png::BitDepth::Eight);
+        encoder.set_source_srgb(png::SrgbRenderingIntent::Perceptual);
+
+        let mut writer = encoder.write_header()
+            .map_err(|e| JsValue::from_str(&format!("PNG header error: {}", e)))?;
+        writer.write_image_data(pixels)
+            .map_err(|e| JsValue::from_str(&format!("PNG write error: {}", e)))?;
+        writer.finish()
+            .map_err(|e| JsValue::from_str(&format!("PNG finish error: {}", e)))?;
+    }
+
     Ok(png_data)
 }
 
@@ -171,6 +187,7 @@ fn encode_apng(width: usize, height: usize, frames: &[(Vec<u8>, u32)]) -> Result
         let mut encoder = png::Encoder::new(&mut output, width as u32, height as u32);
         encoder.set_color(png::ColorType::Rgba);
         encoder.set_depth(png::BitDepth::Eight);
+        encoder.set_source_srgb(png::SrgbRenderingIntent::Perceptual);
         encoder.set_animated(frames.len() as u32, 0).map_err(|e| JsValue::from_str(&format!("APNG setup error: {}", e)))?;
         
         let mut writer = encoder.write_header().map_err(|e| JsValue::from_str(&format!("PNG header error: {}", e)))?;

@@ -10,9 +10,7 @@ crate-type = ["cdylib", "rlib"]
 wasm-bindgen = "0.2"
 jxl = { git = "https://github.com/libjxl/jxl-rs" }
 console_error_panic_hook = "0.1.7"
-# For static PNG encoding
-image = { version = "0.24", default-features = false, features = ["png"] }
-# For APNG (animated PNG) encoding
+# For static PNG and APNG encoding
 png = "0.17"
 
 [dependencies.web-sys]
