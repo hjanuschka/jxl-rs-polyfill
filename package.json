@@ -1,6 +1,6 @@
 {
   "name": "jxl-rs-polyfill",
-  "version": "0.1.1",
+  "version": "0.2.0",
   "description": "JPEG XL (JXL) polyfill for browsers without native support - decodes JXL to PNG using WebAssembly",
   "keywords": [
     "jpeg-xl",
@@ -38,7 +38,8 @@
     "./wasm": {
       "types": "./dist/jxl_wasm.d.ts",
       "import": "./dist/jxl_wasm.js"
-    }
+    },
+    "./jxl_wasm_bg.wasm": "./dist/jxl_wasm_bg.wasm"
   },
   "files": [
     "dist/",

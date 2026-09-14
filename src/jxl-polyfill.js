@@ -15,6 +15,9 @@
 
 import init, { decode_jxl_to_png, get_jxl_info } from './jxl_wasm.js';
 
+// Injected at build time by scripts/bundle.js; used for the CDN fallback.
+const PACKAGE_VERSION = typeof __JXL_POLYFILL_VERSION__ !== 'undefined' ? __JXL_POLYFILL_VERSION__ : 'latest';
+
 let wasmInitialized = false;
 let initPromise = null;
 
@@ -28,7 +31,23 @@ export async function initWasm(moduleOrPath) {
   if (initPromise) return initPromise;
 
   initPromise = (async () => {
-    await init(moduleOrPath);
+    try {
+      await init(moduleOrPath ? { module_or_path: moduleOrPath } : undefined);
+    } catch (err) {
+      if (moduleOrPath) throw err;
+      // Some dev servers (e.g. Vite pre-bundling) do not serve the .wasm
+      // file next to the JS glue, so the relative fetch 404s. Fall back to
+      // loading the exact same version from a CDN so dev mode still works.
+      // See https://github.com/hjanuschka/jxl-rs-polyfill/issues/1
+      const cdnUrl = `https://cdn.jsdelivr.net/npm/jxl-rs-polyfill@${PACKAGE_VERSION}/dist/jxl_wasm_bg.wasm`;
+      console.warn(
+        '[JXL Polyfill] Local WASM load failed (' + (err && err.message) + '). ' +
+        'Falling back to CDN: ' + cdnUrl + '. ' +
+        "To avoid this, pass a wasm URL (e.g. import wasmUrl from 'jxl-rs-polyfill/jxl_wasm_bg.wasm?url') " +
+        "or add jxl-rs-polyfill to Vite's optimizeDeps.exclude."
+      );
+      await init({ module_or_path: cdnUrl });
+    }
     wasmInitialized = true;
   })();
 
@@ -102,6 +121,8 @@ export class JXLPolyfill {
    * @param {boolean} [options.handleSVGElements=true] - Convert SVG <image>/<feImage>
    * @param {boolean} [options.cacheDecoded=true] - Cache decoded images
    * @param {boolean} [options.showLoadingState=false] - Show loading indicator
+   * @param {boolean} [options.hideWhileDecoding=true] - Hide <img> elements while decoding (avoids broken image icon flash)
+   * @param {string | URL | Request | BufferSource | WebAssembly.Module} [options.wasmUrl] - Custom WASM source (useful for bundlers like Vite)
    * @param {boolean} [options.verbose=false] - Enable debug logging
    */
   constructor(options = {}) {
@@ -112,6 +133,8 @@ export class JXLPolyfill {
       handleSVGElements: true,
       cacheDecoded: true,
       showLoadingState: false,
+      hideWhileDecoding: true,
+      wasmUrl: undefined,
       verbose: false,
       ...options,
     };
@@ -148,7 +171,7 @@ export class JXLPolyfill {
     }
 
     // Initialize WASM
-    await initWasm();
+    await initWasm(this.options.wasmUrl);
     this.log('WASM module initialized');
 
     // Patch Image constructor
@@ -262,11 +285,30 @@ export class JXLPolyfill {
       img.style.opacity = '0.5';
     }
 
+    // Hide the element while decoding so the browser's broken-image icon
+    // does not flash; restore once the replacement src has loaded.
+    let restoreVisibility = null;
+    if (this.options.hideWhileDecoding) {
+      const prevVisibility = img.style.visibility;
+      let restored = false;
+      restoreVisibility = () => {
+        if (restored) return;
+        restored = true;
+        img.style.visibility = prevVisibility;
+      };
+      img.style.visibility = 'hidden';
+    }
+
     try {
       const pngUrl = await this.getCachedOrDecode(src);
+      if (restoreVisibility) {
+        img.addEventListener('load', restoreVisibility, { once: true });
+        img.addEventListener('error', restoreVisibility, { once: true });
+      }
       img.src = pngUrl;
     } catch (err) {
       console.error('[JXL Polyfill] Failed to decode:', src, err);
+      if (restoreVisibility) restoreVisibility();
     } finally {
       if (this.options.showLoadingState) {
         img.style.opacity = '';

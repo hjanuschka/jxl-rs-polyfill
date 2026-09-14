@@ -11,6 +11,9 @@ const distDir = join(projectDir, 'dist');
 
 console.log('=== Bundling JXL Polyfill ===');
 
+const pkg = JSON.parse(readFileSync(join(projectDir, 'package.json'), 'utf-8'));
+const versionDefine = { __JXL_POLYFILL_VERSION__: JSON.stringify(pkg.version) };
+
 // Check that WASM artifacts exist
 if (!existsSync(join(distDir, 'jxl_wasm_bg.wasm'))) {
   console.error('Error: WASM artifacts not found in dist/');
@@ -25,6 +28,7 @@ await esbuild.build({
   format: 'esm',
   outfile: join(distDir, 'jxl-polyfill.js'),
   external: ['./jxl_wasm.js', './jxl_wasm_bg.wasm'],
+  define: versionDefine,
   minify: false,
   sourcemap: true,
 });
@@ -36,6 +40,7 @@ await esbuild.build({
   format: 'cjs',
   outfile: join(distDir, 'jxl-polyfill.cjs'),
   external: ['./jxl_wasm.js', './jxl_wasm_bg.wasm'],
+  define: versionDefine,
   minify: false,
   sourcemap: true,
 });

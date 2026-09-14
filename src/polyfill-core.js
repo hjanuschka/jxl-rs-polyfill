@@ -129,11 +129,32 @@
     return objectUrl;
   }
 
+  // Hide an <img> while its JXL source is decoding so the browser's
+  // broken-image icon does not flash. Returns a restore function.
+  function hideWhileDecoding(img) {
+    const prevVisibility = img.style.visibility;
+    img.style.visibility = 'hidden';
+    let restored = false;
+    return () => {
+      if (restored) return;
+      restored = true;
+      img.style.visibility = prevVisibility;
+    };
+  }
+
+  // Restore visibility once the replacement src has actually loaded (or
+  // failed), so there is no flash of the broken-image icon in between.
+  function restoreOnLoad(img, restore) {
+    img.addEventListener('load', restore, { once: true });
+    img.addEventListener('error', restore, { once: true });
+  }
+
   async function processImg(img) {
     const src = img.getAttribute('src');
     if (!isJxlUrl(src) || img.dataset.jxlProcessed) return;
 
     img.dataset.jxlProcessed = 'true';
+    const restore = hideWhileDecoding(img);
 
     if (src.startsWith('data:image/jxl;base64,')) {
       // Decode base64 directly
@@ -149,19 +170,23 @@
         const blob = new Blob([pngData], { type: 'image/png' });
         const pngUrl = URL.createObjectURL(blob);
 
+        restoreOnLoad(img, restore);
         img.src = pngUrl;
         return;
       } catch (err) {
         console.error('[JXL Polyfill] Base64 decode failed:', err);
+        restore();
         return;
       }
     }
 
     try {
       const pngUrl = await fetchAndDecode(src);
+      restoreOnLoad(img, restore);
       img.src = pngUrl;
     } catch (err) {
       console.error('[JXL Polyfill] Decode failed:', src, err);
+      restore();
     }
   }
 

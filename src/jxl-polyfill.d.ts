@@ -4,8 +4,11 @@
 
 /**
  * Initialize the WASM module
+ * @param moduleOrPath - Custom WASM source (URL, bytes, or compiled module)
  */
-export function initWasm(): Promise<void>;
+export function initWasm(
+  moduleOrPath?: string | URL | Request | BufferSource | WebAssembly.Module
+): Promise<void>;
 
 /**
  * Check if the current browser natively supports JXL
@@ -50,6 +53,10 @@ export interface JXLPolyfillOptions {
   cacheDecoded?: boolean;
   /** Show loading indicator during decode (default: false) */
   showLoadingState?: boolean;
+  /** Hide <img> elements while decoding to avoid broken image icon flash (default: true) */
+  hideWhileDecoding?: boolean;
+  /** Custom WASM source, e.g. a ?url import for bundlers like Vite (default: undefined) */
+  wasmUrl?: string | URL | Request | BufferSource | WebAssembly.Module;
   /** Enable debug logging (default: false) */
   verbose?: boolean;
 }

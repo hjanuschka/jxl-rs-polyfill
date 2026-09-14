@@ -6,11 +6,13 @@ JPEG XL (JXL) polyfill for browsers without native support. Decodes JXL images t
 
 - **Zero-config CDN usage** - Just add a script tag
 - **Animation support** - Animated JXL → APNG conversion
+- **Color managed** - sRGB tagging and ICC profile embedding (Display P3 and other wide-gamut images render correctly)
 - **npm package** - Full control with TypeScript support
 - **Automatic detection** - Skips polyfill if browser has native JXL support
 - **Comprehensive coverage** - Handles `<img>`, CSS backgrounds, `<picture>`, SVG images
 - **Web Worker ready** - Non-blocking decode architecture
-- **Caching** - Decoded images are cached for performance
+- **Two-tier caching** - In-memory LRU plus persistent Cache API storage across page loads
+- **No broken image flash** - Images stay hidden until the decoded replacement is ready
 
 ## Quick Start
 
@@ -81,6 +83,8 @@ const polyfill = new JXLPolyfill({
   handleSVGElements: true,       // Convert SVG <image>/<feImage>
   cacheDecoded: true,            // Cache converted images
   showLoadingState: false,       // Show loading indicator
+  hideWhileDecoding: true,       // Hide <img> until decode finishes (no broken icon flash)
+  wasmUrl: undefined,            // Custom WASM location (see Vite section)
   verbose: false,                // Debug logging
 });
 
@@ -128,6 +132,30 @@ function App() {
 }
 ```
 
+### Vite
+
+Vite's dependency pre-bundling moves the JS glue into `.vite/deps/` in dev
+mode, so the relative `jxl_wasm_bg.wasm` fetch can 404. The polyfill falls
+back to loading the same version from jsDelivr automatically, but for a fully
+local setup use one of these:
+
+```javascript
+// Option A: pass the wasm URL explicitly
+import wasmUrl from 'jxl-rs-polyfill/jxl_wasm_bg.wasm?url';
+import { JXLPolyfill } from 'jxl-rs-polyfill';
+
+new JXLPolyfill({ wasmUrl }).start();
+```
+
+```javascript
+// Option B: exclude the package from pre-bundling (vite.config.js)
+export default {
+  optimizeDeps: {
+    exclude: ['jxl-rs-polyfill'],
+  },
+};
+```
+
 ### Next.js
 
 ```javascript
@@ -158,6 +186,9 @@ export default function App({ Component, pageProps }) {
 | `start()` | Start the polyfill (async) |
 | `stop()` | Stop observing DOM changes |
 | `getStats()` | Get conversion statistics |
+
+The CDN build (`auto.js`) additionally exposes `window.JXLPolyfill.clearCache()`
+to clear both the in-memory cache and the persistent Cache API storage.
 
 ### Standalone Functions
 
@@ -242,9 +273,19 @@ Works in all browsers with WebAssembly support:
 | Safari | 11+ |
 | Edge | 79+ |
 
-Browsers with native JXL support (the polyfill auto-detects and skips):
-- Safari 17+ (macOS/iOS)
-- Chrome 116+ (with flag, 117+ by default planned)
+Native JXL support is rolling out across engines (see
+[JPEG XL: When?](https://www.januschka.com/jxl-when/) for a live status page).
+The polyfill auto-detects native support and disables itself:
+
+| Browser | Native JXL |
+|---------|------------|
+| Safari 26+ | Available now (animated JXL still missing, the polyfill only kicks in when native decode fails) |
+| Chrome / Chromium | Planned for 155 |
+| Firefox | Planned for 158 |
+| Ladybird | Available in development builds |
+
+Until those releases reach your users, this polyfill bridges the gap - and it
+automatically gets out of the way once native support arrives.
 
 ## License
 
