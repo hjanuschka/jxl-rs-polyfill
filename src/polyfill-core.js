@@ -1,15 +1,54 @@
   // Polyfill core logic (embedded in auto.js IIFE)
 
-  const cache = new Map();
+  const CACHE_NAME = 'jxl-polyfill-v1';
+  const MAX_MEMORY_CACHE = 100;
+  const memoryCache = new Map();
+  const memoryCacheKeys = [];
+  let persistentCache = null;
   let stats = { imagesConverted: 0, cacheHits: 0 };
+
+  // Initialize persistent cache
+  async function initPersistentCache() {
+    if (persistentCache) return persistentCache;
+    try {
+      if (typeof caches !== 'undefined') {
+        persistentCache = await caches.open(CACHE_NAME);
+      }
+    } catch (e) {
+      // Cache API unavailable (e.g., insecure context)
+    }
+    return persistentCache;
+  }
+
+  // Add to memory cache with LRU eviction
+  function addToMemoryCache(url, objectUrl) {
+    // If already cached, remove old entry to refresh LRU position
+    if (memoryCache.has(url)) {
+      const idx = memoryCacheKeys.indexOf(url);
+      if (idx !== -1) memoryCacheKeys.splice(idx, 1);
+    }
+
+    // Evict oldest if at capacity
+    while (memoryCacheKeys.length >= MAX_MEMORY_CACHE) {
+      const oldestKey = memoryCacheKeys.shift();
+      const oldUrl = memoryCache.get(oldestKey);
+      if (oldUrl) {
+        URL.revokeObjectURL(oldUrl);
+        memoryCache.delete(oldestKey);
+      }
+    }
+
+    memoryCache.set(url, objectUrl);
+    memoryCacheKeys.push(url);
+  }
 
   function isJxlUrl(url) {
     if (!url) return false;
     const lower = url.toLowerCase();
-    
+
     // Check for base64 data URI
     if (lower.startsWith('data:image/jxl;base64,')) return true;
-    
+
     return lower.endsWith('.jxl') || lower.includes('.jxl?') || lower.includes('.jxl#');
   }
 
@@ -27,7 +66,7 @@
     // Fallback to main thread (blocking but works everywhere)
     const wasm = window.__jxl_wasm;
     if (!wasm) throw new Error('WASM not initialized');
-    
+
     try {
       return wasm.decode_jxl_to_png(jxlBytes);
     } catch (e) {
@@ -36,24 +75,55 @@
   }
 
   async function fetchAndDecode(url) {
-    if (cache.has(url)) {
+    // Tier 1: In-memory cache
+    if (memoryCache.has(url)) {
       stats.cacheHits++;
-      return cache.get(url);
+      return memoryCache.get(url);
     }
 
+    // Tier 2: Persistent Cache API
+    try {
+      const pc = await initPersistentCache();
+      if (pc) {
+        const cached = await pc.match(url);
+        if (cached) {
+          const blob = await cached.blob();
+          const objectUrl = URL.createObjectURL(blob);
+          addToMemoryCache(url, objectUrl);
+          stats.cacheHits++;
+          return objectUrl;
+        }
+      }
+    } catch (e) {
+      // Cache API error, proceed to decode
+    }
+
+    // Tier 3: Fetch and decode
     const response = await fetch(url);
     if (!response.ok) throw new Error(`Fetch failed: ${response.status}`);
 
     const jxlData = new Uint8Array(await response.arrayBuffer());
-
-    // For the auto.js version, we need to call the WASM decoder
-    // This requires the wasm-bindgen generated JS glue
     const pngData = await decodeJxl(jxlData);
 
     const blob = new Blob([pngData], { type: 'image/png' });
     const objectUrl = URL.createObjectURL(blob);
 
-    cache.set(url, objectUrl);
+    // Store in memory cache
+    addToMemoryCache(url, objectUrl);
+
+    // Store in persistent cache (non-blocking)
+    try {
+      const pc = await initPersistentCache();
+      if (pc) {
+        const pngResponse = new Response(blob.slice(), {
+          headers: { 'Content-Type': 'image/png' }
+        });
+        pc.put(url, pngResponse).catch(() => {});
+      }
+    } catch (e) {
+      // Cache API store failed, not critical
+    }
+
     stats.imagesConverted++;
 
     return objectUrl;
@@ -74,11 +144,11 @@
         for (let i = 0; i < binaryString.length; i++) {
           bytes[i] = binaryString.charCodeAt(i);
         }
-        
+
         const pngData = await decodeJxl(bytes);
         const blob = new Blob([pngData], { type: 'image/png' });
         const pngUrl = URL.createObjectURL(blob);
-        
+
         img.src = pngUrl;
         return;
       } catch (err) {
@@ -191,6 +261,25 @@
     });
   }
 
+  async function clearCache() {
+    // Clear memory cache and revoke all object URLs
+    for (const [, objectUrl] of memoryCache) {
+      URL.revokeObjectURL(objectUrl);
+    }
+    memoryCache.clear();
+    memoryCacheKeys.length = 0;
+
+    // Clear persistent cache
+    try {
+      if (typeof caches !== 'undefined') {
+        await caches.delete(CACHE_NAME);
+        persistentCache = null;
+      }
+    } catch (e) {
+      // Cache API unavailable
+    }
+  }
+
   async function startPolyfill() {
     const hasNative = await checkNativeSupport();
     if (hasNative) {
@@ -207,5 +296,6 @@
   window.JXLPolyfill = {
     start: startPolyfill,
     processAll,
-    getStats: () => ({ ...stats, cacheSize: cache.size }),
+    clearCache,
+    getStats: () => ({ ...stats, cacheSize: memoryCache.size }),
   };
